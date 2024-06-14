@@ -1,0 +1,34 @@
+import os
+import requests
+import json
+import csv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Links and API keys
+Unsplash_URL = "https://api.unsplash.com"
+Unsplash_KEY = "e7B8RzVvvok2XZeyfXMBuX9Nove9Z3r98tCS-8Qv7xQ"
+Phototag_API_KEY = "0MdP-xt7m-5pOq-kbfM-NAdt-sD1"
+Phototag_URL = "https://api.phototag.ai/enhance"
+ImgNum = 10
+SAVE_ROOT = "images"
+
+def images():
+    try:
+        logging.info("Fetching images from Unsplash API")
+        headers = {"Authorization": f"Client-ID {Unsplash_KEY}"}
+        params = {"count": ImgNum}
+        response = requests.get(f"{Unsplash_URL}/photos/random", headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, list):
+            return data
+        else:
+            logging.error("Unexpected response format: Expected a list")
+            return []
+    except requests.exceptions.RequestException as e:
+        logging.error(f"An error occurred while fetching images: {e}")
+        return []
