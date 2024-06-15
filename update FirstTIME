@@ -1,0 +1,142 @@
+import os
+import requests
+import json
+import csv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Links and API keys
+Unsplash_URL = "https://api.unsplash.com"
+Unsplash_KEY = "e7B8RzVvvok2XZeyfXMBuX9Nove9Z3r98tCS-8Qv7xQ"
+Phototag_API_KEY = "0MdP-xt7m-5pOq-kbfM-NAdt-sD1"
+Phototag_URL = "https://api.phototag.ai/enhance"
+ImgNum = 10
+SAVE_ROOT = "images"
+
+def images():
+    try:
+        logging.info("Fetching images from Unsplash API")
+        headers = {"Authorization": f"Client-ID {Unsplash_KEY}"}
+        params = {"count": ImgNum}
+        response = requests.get(f"{Unsplash_URL}/photos/random", headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, list):
+            return data
+        else:
+            logging.error("Unexpected response format: Expected a list")
+            return []
+    except requests.exceptions.RequestException as e:
+        logging.error(f"An error occurred while fetching images: {e}")
+        return []
+
+def download_image(image_data, save_dir):
+    try:
+        img_url = image_data.get("urls", {}).get("regular")
+        if not img_url:
+            logging.error("No URL found for image")
+            return None
+        logging.info(f"Downloading image from {img_url}")
+        response = requests.get(img_url, stream=True, timeout=20)
+        response.raise_for_status()
+        img_filename = os.path.join(save_dir, "image.jpg")
+        with open(img_filename, "wb") as file:
+            for chunk in response.iter_content(1024):
+                file.write(chunk)
+        return img_filename
+    except requests.exceptions.RequestException as e:
+        logging.error(f"An error occurred while downloading the image: {e}")
+        return None
+
+def enhance_metadata(img_path):
+    try:
+        logging.info(f"Enhancing metadata for {img_path}")
+        with open(img_path, 'rb') as file:
+            response = requests.post(
+                Phototag_URL,
+                headers={'Authorization': f'Bearer {Phototag_API_KEY}'},
+                files={'image': file},
+                timeout=60
+            )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"An error occurred while enhancing metadata: {e}")
+        return None
+
+def store_metadata(image_data, enhanced_metadata, save_dir):
+    metadata = {
+        "original": {
+            "id": image_data["id"],
+            "photographer": image_data["user"]["name"],
+            "description": image_data.get("description", ""),
+            "alt_description": image_data.get("alt_description", ""),
+            "urls": image_data["urls"]
+        },
+        "enhanced": enhanced_metadata
+    }
+    json_filename = os.path.join(save_dir, "metadata.json")
+    with open(json_filename, "w") as json_file:
+        json.dump(metadata, json_file, indent=4)
+    logging.info(f"Stored metadata to {json_filename}")
+
+def process_image(image_data, idx):
+    logging.info(f"Processing image {idx + 1}")
+    save_dir = os.path.join(SAVE_ROOT, f"image_{idx + 1}")
+    os.makedirs(save_dir, exist_ok=True)
+    
+    img_path = download_image(image_data, save_dir)
+    if img_path:
+        enhanced_metadata = enhance_metadata(img_path)
+        if enhanced_metadata:
+            store_metadata(image_data, enhanced_metadata, save_dir)
+            return {
+                "id": f"image_{idx + 1}",
+                "photographer": image_data["user"]["name"],
+                "enhanced": enhanced_metadata
+            }
+        else:
+            logging.error(f"Failed to enhance metadata for image {idx + 1}")
+    return None
+
+def CSV_file(images_data):
+    summary_filepath = os.path.join(SAVE_ROOT, "summary.csv")
+    with open(summary_filepath, "w", newline='') as csvfile:
+        fieldnames = ["image_id", "photographer", "enhanced_title", "enhanced_description", "enhanced_tags"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for img_data in images_data:
+            writer.writerow({
+                "image_id": img_data["id"],
+                "photographer": img_data["photographer"],
+                "enhanced_title": img_data["enhanced"].get("title", ""),
+                "enhanced_description": img_data["enhanced"].get("description", ""),
+                "enhanced_tags": ",".join(img_data["enhanced"].get("tags", []))
+            })
+    logging.info(f"CSV file created at {summary_filepath}")
+
+def main():
+    os.makedirs(SAVE_ROOT, exist_ok=True)
+    
+    
+    images_data = images()
+    if not images_data:
+        logging.error("No images fetched. Exiting.")
+        return
+    
+    ####  Multithread   ####
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(process_image, image_data, idx) for idx, image_data in enumerate(images_data)]
+        all_images_data = [future.result() for future in as_completed(futures) if future.result()]
+    
+    
+    if all_images_data:
+        CSV_file(all_images_data)
+    else:
+        logging.error("No images processed. Summary CSV not created.")
+
+if __name__ == "__main__":
+    main()
