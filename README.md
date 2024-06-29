@@ -22,4 +22,4 @@ To ensure all dependencies are installed, you can create a requirements.txt file
 Then, use the following command to install all the dependencies listed in the requirements.txt file: pip install -r requirements.txt
 
 # Usage
-Set Up API Keys: "https://api.unsplash.com"  
+Set Up API Keys: "0MdP-xt7m-5pOq-kbfM-NAdt-sD1"
