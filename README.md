@@ -22,4 +22,6 @@ To ensure all dependencies are installed, you can create a requirements.txt file
 Then, use the following command to install all the dependencies listed in the requirements.txt file: pip install -r requirements.txt
 
 # Usage
-Set Up API Keys: "0MdP-xt7m-5pOq-kbfM-NAdt-sD1"
+Set Up API Keys: "0MdP-xt7m-5pOq-kbfM-NAdt-sD1" "e7B8RzVvvok2XZeyfXMBuX9Nove9Z3r98tCS-8Qv7xQ"
+
+# Run the Script
