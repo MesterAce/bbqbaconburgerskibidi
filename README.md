@@ -14,3 +14,12 @@ Required Python packages: requests
 # Installation
 
 Clone the Repository
+
+# Installing Dependencies
+
+To ensure all dependencies are installed, you can create a requirements.txt file for easier installation using pip: requests
+
+Then, use the following command to install all the dependencies listed in the requirements.txt file: pip install -r requirements.txt
+
+# Usage
+Set Up API Keys:
